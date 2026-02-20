@@ -3,141 +3,110 @@ import { NoteList } from "@/components/NoteList";
 import { SearchBar } from "@/components/SearchBar";
 import { useNotes } from "@/context/NotesContext";
 import { useRouter } from "expo-router";
-import { Grid3x3, List, Plus, Square, LayoutGrid } from "lucide-react-native";
-import React, { useCallback, useState } from "react";
+import { LayoutGrid, List, SquarePen } from "lucide-react-native";
+import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-type ViewMode = "list" | "grid-2" | "grid-3";
+type ViewMode = "list" | "grid-2";
+
+const APPLE_NOTES_YELLOW = "#E4AF0A";
 
 export default function NotesScreen() {
   const router = useRouter();
-  const [viewMode, setViewMode] = useState<ViewMode>("grid-2");
-  const [refreshing, setRefreshing] = useState(false);
-  const { refreshNotes } = useNotes();
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await refreshNotes();
-    setRefreshing(false);
-  }, []);
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const { filteredNotes } = useNotes();
 
   const toggleViewMode = () => {
-    if (viewMode === "list") {
-      setViewMode("grid-2");
-    } else if (viewMode === "grid-2") {
-      setViewMode("grid-3");
-    } else {
-      setViewMode("list");
-    }
+    setViewMode(viewMode === "list" ? "grid-2" : "list");
   };
 
   const getViewIcon = () => {
-    if (viewMode === "list") {
-      return <Grid3x3 size={22} color="#007AFF" strokeWidth={2} />;
-    } else if (viewMode === "grid-2") {
-      return <LayoutGrid size={22} color="#007AFF" strokeWidth={2} />;
-    } else {
-      return <List size={22} color="#007AFF" strokeWidth={2} />;
-    }
+    if (viewMode === "list")
+      return <LayoutGrid size={22} color={APPLE_NOTES_YELLOW} />;
+    return <List size={22} color={APPLE_NOTES_YELLOW} />;
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerActions}>
-          <Pressable
-            onPress={toggleViewMode}
-            style={({ pressed }) => [
-              styles.viewToggle,
-              pressed && { backgroundColor: "#F2F2F7" },
-            ]}
-          >
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.largeTitle}>Notas</Text>
+          <Pressable onPress={toggleViewMode} style={styles.viewToggle}>
             {getViewIcon()}
           </Pressable>
         </View>
-        <SearchBar />
-      </View>
 
-      <View style={styles.content}>
-        {viewMode === "list" ? (
-          <NoteList />
-        ) : (
-          <NoteGrid columns={viewMode === "grid-2" ? 2 : 3} />
-        )}
-      </View>
-
-      <Pressable
-        style={({ pressed }) => [
-          styles.fab,
-          pressed && { transform: [{ scale: 0.95 }] },
-        ]}
-        onPress={() => router.push("/note-detail")}
-      >
-        <View style={styles.fabInner}>
-          <Square size={20} color="#007AFF" strokeWidth={2.5} />
-          <Plus
-            size={20}
-            color="#007AFF"
-            strokeWidth={2.5}
-            style={styles.plusIcon}
-          />
+        <View style={styles.searchContainer}>
+          <SearchBar />
         </View>
-      </Pressable>
-    </View>
+
+        <View style={styles.content}>
+          {viewMode === "list" ? <NoteList /> : <NoteGrid columns={2} />}
+        </View>
+
+        {/* Bottom Toolbar iOS Style */}
+        <SafeAreaView edges={["bottom"]} style={styles.bottomSafeArea}>
+          <View style={styles.bottomToolbar}>
+            <View style={styles.toolbarSpacer} />
+            <Text style={styles.noteCount}>{filteredNotes.length} notas</Text>
+            <Pressable
+              style={styles.composeButton}
+              onPress={() => router.push("/note-detail")}
+            >
+              <SquarePen
+                size={28}
+                color={APPLE_NOTES_YELLOW}
+                strokeWidth={1.5}
+              />
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F2F2F7",
-  },
+  safeArea: { flex: 1, backgroundColor: "#F2F2F7" },
+  container: { flex: 1 },
   header: {
-    backgroundColor: "#fff",
-    borderBottomWidth: 0.5,
-    borderBottomColor: "rgba(0,0,0,0.1)",
-    paddingHorizontal: 16,
-  },
-  headerActions: {
     flexDirection: "row",
-    justifyContent: "flex-end",
+    justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 10,
   },
-  viewToggle: {
-    padding: 8,
-    borderRadius: 8,
+  largeTitle: {
+    fontSize: 34,
+    fontWeight: "700",
+    color: "#000",
+    letterSpacing: -0.5, // Toque tipográfico de iOS
   },
-  content: {
-    flex: 1,
+  viewToggle: { padding: 4 },
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 10,
   },
-  fab: {
-    position: "absolute",
-    bottom: 100,
-    right: 16,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    justifyContent: "center",
+  content: { flex: 1 },
+  bottomSafeArea: {
+    backgroundColor: "#F8F8F8",
+  },
+  bottomToolbar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-    zIndex: 9999,
-    borderWidth: 0.5,
-    borderColor: "rgba(0,0,0,0.05)",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(0,0,0,0.2)",
   },
-  fabInner: {
-    position: "relative",
-    width: 24,
-    height: 24,
-    justifyContent: "center",
-    alignItems: "center",
+  toolbarSpacer: { width: 30 },
+  noteCount: {
+    fontSize: 12,
+    color: "#000",
+    fontWeight: "400",
   },
-  plusIcon: {
-    position: "absolute",
-  },
+  composeButton: { padding: 4 },
 });

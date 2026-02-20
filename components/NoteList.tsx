@@ -1,186 +1,128 @@
 import { useNotes } from "@/context/NotesContext";
 import { Note } from "@/types/notes";
-import { Link } from "expo-router";
-import { ChevronRight, Pin, PinOff, Trash2 } from "lucide-react-native";
-import React, { useState } from "react";
-import {
-    Alert,
-    FlatList,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
-} from "react-native";
+import { useRouter } from "expo-router";
+import React from "react";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
-export function NoteList() {
-  const { filteredNotes, deleteNote, togglePin } = useNotes();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+export const NoteList = () => {
+  const { filteredNotes } = useNotes();
+  const router = useRouter();
 
-  const handleDelete = (id: string) => {
-    Alert.alert("Eliminar nota", "¿Estás seguro?", [
-      { text: "Cancelar", onPress: () => {}, style: "cancel" },
-      {
-        text: "Eliminar",
-        onPress: async () => {
-          await deleteNote(id);
-          setSelectedId(null);
-        },
-        style: "destructive",
-      },
-    ]);
+  const formatDate = (timestamp: number) => {
+    const date = new Date(timestamp);
+    return date.toLocaleDateString("es-ES", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "2-digit",
+    });
   };
 
-  const renderNoteItem = ({ item }: { item: Note }) => {
-    const isSelected = selectedId === item.id;
-    const date = new Date(item.updatedAt).toLocaleDateString("es-ES", {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const renderItem = ({ item, index }: { item: Note; index: number }) => {
+    const isLast = index === filteredNotes.length - 1;
 
     return (
-      <Link
-        href={{
-          pathname: "/note-detail",
-          params: { id: item.id },
-        }}
-        asChild
+      <Pressable
+        style={({ pressed }) => [
+          styles.noteItem,
+          pressed && styles.noteItemPressed,
+        ]}
+        onPress={() =>
+          router.push({ pathname: "/note-detail", params: { id: item.id } })
+        }
       >
-        <Pressable
-          onLongPress={() => setSelectedId(isSelected ? null : item.id)}
-          style={[styles.noteItem, isSelected && styles.noteItemSelected]}
-        >
-          <View style={styles.noteContent}>
-            <View style={styles.titleRow}>
-              <Text style={styles.noteTitle} numberOfLines={1}>
-                {item.title || "Sin título"}
-              </Text>
-              {item.pinned && <Pin size={14} color="#007AFF" />}
-            </View>
-            <Text style={styles.notePreview} numberOfLines={2}>
-              {item.content || "Sin contenido"}
-            </Text>
-            <Text style={styles.noteDate}>{date}</Text>
-          </View>
-
-          {!isSelected && <ChevronRight size={20} color="#999" />}
-
-          {isSelected && (
-            <View style={styles.actionButtonsRow}>
-              <Pressable
-                onPress={(e) => {
-                  e.preventDefault();
-                  togglePin(item.id);
-                }}
-                hitSlop={8}
-              >
-                {item.pinned ? (
-                  <PinOff size={18} color="#007AFF" />
-                ) : (
-                  <Pin size={18} color="#007AFF" />
-                )}
-              </Pressable>
-              <Pressable
-                onPress={(e) => {
-                  e.preventDefault();
-                  handleDelete(item.id);
-                }}
-                hitSlop={8}
-              >
-                <Trash2 size={18} color="#FF3B30" />
-              </Pressable>
-            </View>
-          )}
-        </Pressable>
-      </Link>
+        <Text style={styles.title} numberOfLines={1}>
+          {item.title || "Nueva nota"}
+        </Text>
+        <View style={styles.previewContainer}>
+          <Text style={styles.date}>{formatDate(item.updatedAt)}</Text>
+          <Text style={styles.previewText} numberOfLines={1}>
+            {item.content || "Sin texto adicional"}
+          </Text>
+        </View>
+        {!isLast && <View style={styles.separator} />}
+      </Pressable>
     );
   };
 
+  if (filteredNotes.length === 0) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>No hay notas</Text>
+      </View>
+    );
+  }
+
   return (
-    <FlatList
-      data={filteredNotes}
-      renderItem={renderNoteItem}
-      keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.container}
-      scrollIndicatorInsets={{ right: 1 }}
-      ListEmptyComponent={
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No hay notas</Text>
-        </View>
-      }
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
-    />
+    <View style={styles.container}>
+      <View style={styles.listBackground}>
+        <FlatList
+          data={filteredNotes}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          showsVerticalScrollIndicator={false}
+        />
+      </View>
+    </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
-    flexGrow: 1,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: "#F2F2F7",
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  listBackground: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    overflow: "hidden",
   },
   noteItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    marginVertical: 4,
-    backgroundColor: "#fff",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 1,
+    paddingTop: 12,
+    paddingBottom: 12,
+    paddingLeft: 16,
+    paddingRight: 16,
+    backgroundColor: "#FFFFFF",
   },
-  noteItemSelected: {
-    backgroundColor: "#E8F4FF",
-    borderWidth: 1,
-    borderColor: "#007AFF",
+  noteItemPressed: {
+    backgroundColor: "#E5E5EA",
   },
-  noteContent: {
-    flex: 1,
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 4,
-  },
-  noteTitle: {
+  title: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#000",
-    flex: 1,
-  },
-  notePreview: {
-    fontSize: 13,
-    color: "#666",
-    lineHeight: 18,
+    color: "#000000",
     marginBottom: 4,
   },
-  noteDate: {
-    fontSize: 12,
-    color: "#999",
-  },
-  actionButtonsRow: {
+  previewContainer: {
     flexDirection: "row",
-    gap: 12,
-    paddingLeft: 12,
+    alignItems: "center",
+  },
+  date: {
+    fontSize: 14,
+    color: "#8E8E93",
+    marginRight: 8,
+  },
+  previewText: {
+    fontSize: 14,
+    color: "#8E8E93",
+    flex: 1,
   },
   separator: {
-    height: 0,
+    position: "absolute",
+    bottom: 0,
+    left: 16, // El separador de iOS no toca el borde izquierdo
+    right: 0,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "#C6C6C8",
   },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 60,
+    paddingTop: 40,
   },
   emptyText: {
     fontSize: 16,
-    color: "#999",
+    color: "#8E8E93",
   },
 });

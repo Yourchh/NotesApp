@@ -2,17 +2,16 @@ import { StyleSheet } from "react-native";
 
 // Colores principales
 export const COLORS = {
-  primary: "#007AFF",
-  danger: "#FF3B30",
+  primary: "#007AFF", // System Blue iOS
+  danger: "#FF3B30", // System Red iOS
   background: "#FFFFFF",
-  lightGray: "#F5F5F5",
-  mediumGray: "#E5E5EA",
-  darkGray: "#999999",
+  lightGray: "#F2F2F7", // iOS System Grouped Background
+  mediumGray: "#E5E5EA", // iOS Separator
+  darkGray: "#8E8E93", // iOS Secondary Text
   darkText: "#000000",
-  secondaryText: "#666666",
-  tertiaryText: "#999999",
+  secondaryText: "#3C3C43",
+  tertiaryText: "#C7C7CC", // iOS Placeholder Text
 };
-
 // Estilos globales
 export const globalStyles = StyleSheet.create({
   container: {

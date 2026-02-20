@@ -1,40 +1,41 @@
 import { useNotes } from "@/context/NotesContext";
 import { Note } from "@/types/notes";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, Trash2 } from "lucide-react-native";
+import { ChevronLeft, Pin, PinOff, Trash2 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const NOTE_COLORS = [
-  "#F5F5F5", // Gray
-  "#FFF4E6", // Yellow
-  "#E8F5E9", // Green
-  "#E7F3FF", // Blue
-  "#F3E5F5", // Purple
-  "#FCE4EC", // Pink
+  "#FFFFFF",
+  "#FFF4E6",
+  "#E8F5E9",
+  "#E7F3FF",
+  "#F3E5F5",
+  "#FCE4EC",
 ];
 
 export default function NoteDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
-  const { getNoteById, addNote, updateNote, deleteNote } = useNotes();
+  const { getNoteById, addNote, updateNote, deleteNote, togglePin } =
+    useNotes();
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [color, setColor] = useState(NOTE_COLORS[0]);
+  const [isPinned, setIsPinned] = useState(false);
   const [isNew, setIsNew] = useState(true);
-  const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -43,27 +44,17 @@ export default function NoteDetailScreen() {
         setTitle(note.title);
         setContent(note.content);
         setColor(note.color || NOTE_COLORS[0]);
+        setIsPinned(note.pinned || false);
         setIsNew(false);
       }
     }
   }, [id]);
 
-  const handleContentChange = (text: string) => {
-    setContent(text);
-    setHasChanges(true);
-  };
-
-  const handleTitleChange = (text: string) => {
-    setTitle(text);
-    setHasChanges(true);
-  };
-
   const saveNote = async () => {
+    // Si la nota está vacía, no guardarla al regresar
     if (!title.trim() && !content.trim()) {
-      Alert.alert(
-        "Nota vacía",
-        "La nota debe tener al menos un título o contenido",
-      );
+      if (router.canGoBack()) router.back();
+      else router.replace("/(tabs)");
       return;
     }
 
@@ -73,44 +64,35 @@ export default function NoteDetailScreen() {
       title: title.trim(),
       content: content.trim(),
       color,
+      pinned: isPinned,
       createdAt: isNew ? now : getNoteById(id!)?.createdAt || now,
       updatedAt: now,
     };
 
-    try {
-      if (isNew) {
-        await addNote(note);
-      } else {
-        await updateNote(note);
-      }
-      if (router.canGoBack()) {
-        router.back();
-      } else {
-        router.replace("/(tabs)");
-      }
-    } catch (error) {
-      Alert.alert("Error", "No se pudo guardar la nota");
+    if (isNew) await addNote(note);
+    else await updateNote(note);
+
+    if (router.canGoBack()) router.back();
+    else router.replace("/(tabs)");
+  };
+
+  const handlePinToggle = async () => {
+    setIsPinned(!isPinned);
+    if (!isNew && id) {
+      await togglePin(id);
     }
   };
 
   const handleDelete = () => {
-    Alert.alert("Eliminar nota", "¿Estás seguro?", [
-      { text: "Cancelar", onPress: () => {}, style: "cancel" },
+    Alert.alert("Eliminar nota", "¿Estás seguro de que deseas eliminarla?", [
+      { text: "Cancelar", style: "cancel" },
       {
         text: "Eliminar",
-        onPress: async () => {
-          try {
-            await deleteNote(id!);
-            if (router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace("/(tabs)");
-            }
-          } catch (error) {
-            Alert.alert("Error", "No se pudo eliminar la nota");
-          }
-        },
         style: "destructive",
+        onPress: async () => {
+          if (id) await deleteNote(id);
+          router.back();
+        },
       },
     ]);
   };
@@ -118,108 +100,58 @@ export default function NoteDetailScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
+      style={[styles.container, { backgroundColor: color }]}
     >
-      <SafeAreaView style={[styles.container, { backgroundColor: color }]}>
+      <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <Pressable
-            onPress={() => {
-              if (hasChanges) {
-                Alert.alert("Cambios sin guardar", "¿Descartar cambios?", [
-                  { text: "Continuar editando", style: "cancel" },
-                  {
-                    text: "Descartar",
-                    onPress: () => {
-                      if (router.canGoBack()) {
-                        router.back();
-                      } else {
-                        router.replace("/(tabs)");
-                      }
-                    },
-                    style: "destructive",
-                  },
-                ]);
-              } else {
-                if (router.canGoBack()) {
-                  router.back();
-                } else {
-                  router.replace("/(tabs)");
-                }
-              }
-            }}
-            style={({ pressed }) => [
-              styles.headerButton,
-              pressed && { opacity: 0.6 },
-            ]}
-          >
-            <ChevronLeft size={28} color="#007AFF" />
+          <Pressable onPress={saveNote} style={styles.headerButtonLeft}>
+            <ChevronLeft size={28} color="#E4AF0A" />
+            <Text style={styles.backText}>Notas</Text>
           </Pressable>
 
           <View style={styles.headerActions}>
+            <Pressable onPress={handlePinToggle} style={styles.iconButton}>
+              {isPinned ? (
+                <PinOff size={22} color="#E4AF0A" />
+              ) : (
+                <Pin size={22} color="#E4AF0A" />
+              )}
+            </Pressable>
             {!isNew && (
-              <Pressable
-                onPress={handleDelete}
-                style={({ pressed }) => [
-                  styles.headerButton,
-                  pressed && { opacity: 0.6 },
-                ]}
-              >
-                <Trash2 size={24} color="#FF3B30" />
+              <Pressable onPress={handleDelete} style={styles.iconButton}>
+                <Trash2 size={22} color="#FF3B30" />
               </Pressable>
             )}
+            <Pressable onPress={saveNote}>
+              <Text style={styles.doneText}>Listo</Text>
+            </Pressable>
           </View>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           <TextInput
             style={styles.title}
             placeholder="Título"
-            placeholderTextColor="#999"
+            placeholderTextColor="#C7C7CC"
             value={title}
-            onChangeText={handleTitleChange}
+            onChangeText={setTitle}
             maxLength={100}
             multiline
           />
-
           <TextInput
             style={styles.textArea}
             placeholder="Comienza a escribir..."
-            placeholderTextColor="#999"
+            placeholderTextColor="#C7C7CC"
             value={content}
-            onChangeText={handleContentChange}
+            onChangeText={setContent}
             multiline
             textAlignVertical="top"
           />
         </ScrollView>
-
-        <View style={styles.colorPicker}>
-          {NOTE_COLORS.map((noteColor) => (
-            <Pressable
-              key={noteColor}
-              onPress={() => {
-                setColor(noteColor);
-                setHasChanges(true);
-              }}
-              style={[
-                styles.colorOption,
-                { backgroundColor: noteColor },
-                color === noteColor && styles.colorSelected,
-              ]}
-            >
-              {color === noteColor && <View style={styles.checkmark} />}
-            </Pressable>
-          ))}
-        </View>
-
-        <Pressable
-          onPress={saveNote}
-          style={({ pressed }) => [
-            styles.saveButton,
-            pressed && { opacity: 0.7 },
-          ]}
-        >
-          <Text style={styles.saveButtonText}>Guardar</Text>
-        </Pressable>
       </SafeAreaView>
     </KeyboardAvoidingView>
   );
@@ -233,73 +165,47 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
   },
-  headerButton: {
-    padding: 8,
-    borderRadius: 8,
+  headerButtonLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  backText: {
+    fontSize: 17,
+    color: "#E4AF0A",
+    marginLeft: -4,
   },
   headerActions: {
     flexDirection: "row",
-    gap: 12,
+    alignItems: "center",
+    gap: 16,
+    paddingRight: 8,
+  },
+  iconButton: {
+    padding: 4,
+  },
+  doneText: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#E4AF0A",
   },
   content: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingHorizontal: 20,
+    paddingTop: 10,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "700",
+    fontSize: 32,
+    fontWeight: "bold",
     color: "#000",
-    marginBottom: 16,
-    paddingVertical: 8,
+    marginBottom: 8,
   },
   textArea: {
-    fontSize: 16,
+    fontSize: 17,
+    lineHeight: 24,
     color: "#000",
-    minHeight: 200,
-    textAlignVertical: "top",
-  },
-  colorPicker: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(0,0,0,0.1)",
-  },
-  colorOption: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  colorSelected: {
-    borderWidth: 3,
-    borderColor: "#007AFF",
-  },
-  checkmark: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#007AFF",
-  },
-  saveButton: {
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    margin: 16,
-    marginBottom: 24,
-    backgroundColor: "#007AFF",
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  saveButtonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
+    minHeight: 300,
   },
 });
