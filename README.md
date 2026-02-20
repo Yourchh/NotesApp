@@ -112,30 +112,3 @@ AppleNotesApp/
 ## 💾 Persistencia de Datos
 
 La aplicación usa AsyncStorage para guardar automáticamente todas tus notas en el dispositivo. Los datos se persisten entre sesiones.
-
-## 🎯 Características Futuras
-
-- Sincronización en la nube
-- Compartir notas
-- Recordatorios
-- Etiquetas
-- Escaneo de documentos
-- Notas de voz
-
-## 📄 Licencia
-
-Este proyecto es de código abierto y disponible bajo la licencia MIT.
-
-## 👨‍💻 Desarrollo
-
-Para contribuir al proyecto, por favor:
-
-1. Fork el repositorio
-2. Crea una rama para tu feature
-3. Commit tus cambios
-4. Push a la rama
-5. Abre un Pull Request
-
----
-
-Hecho con ❤️ inspirado en Apple Notes
