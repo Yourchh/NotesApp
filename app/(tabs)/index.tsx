@@ -5,8 +5,16 @@ import { useNotes } from "@/context/NotesContext";
 import { useRouter } from "expo-router";
 import { LayoutGrid, List, SquarePen } from "lucide-react-native";
 import React, { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from "react-native";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 type ViewMode = "list" | "grid-2";
 
@@ -16,6 +24,7 @@ export default function NotesScreen() {
   const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const { filteredNotes } = useNotes();
+  const insets = useSafeAreaInsets();
 
   const toggleViewMode = () => {
     setViewMode(viewMode === "list" ? "grid-2" : "list");
@@ -32,9 +41,16 @@ export default function NotesScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.largeTitle}>Notas</Text>
-          <Pressable onPress={toggleViewMode} style={styles.viewToggle}>
-            {getViewIcon()}
-          </Pressable>
+
+          {/* APLICAMOS LA MISMA SOLUCIÓN DEL LÁPIZ AQUÍ */}
+          <TouchableOpacity
+            onPress={toggleViewMode}
+            style={styles.viewToggle}
+            hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+            activeOpacity={0.6}
+          >
+            <View pointerEvents="none">{getViewIcon()}</View>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.searchContainer}>
@@ -45,23 +61,32 @@ export default function NotesScreen() {
           {viewMode === "list" ? <NoteList /> : <NoteGrid columns={2} />}
         </View>
 
-        {/* Bottom Toolbar iOS Style */}
-        <SafeAreaView edges={["bottom"]} style={styles.bottomSafeArea}>
-          <View style={styles.bottomToolbar}>
-            <View style={styles.toolbarSpacer} />
-            <Text style={styles.noteCount}>{filteredNotes.length} notas</Text>
-            <Pressable
-              style={styles.composeButton}
-              onPress={() => router.push("/note-detail")}
-            >
+        {/* BARRA INFERIOR RESTAURADA PARA QUE ENCAJE PERFECTO */}
+        <View
+          style={[
+            styles.bottomToolbar,
+            { paddingBottom: Math.max(insets.bottom, 12) },
+          ]}
+        >
+          <View style={styles.toolbarSpacer} />
+          <Text style={styles.noteCount}>{filteredNotes.length} notas</Text>
+
+          <TouchableOpacity
+            style={styles.composeButton}
+            onPress={() => router.push("/note-detail")}
+            hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+            activeOpacity={0.6}
+          >
+            {/* Esta vista con pointerEvents="none" era la magia táctil */}
+            <View pointerEvents="none">
               <SquarePen
                 size={28}
                 color={APPLE_NOTES_YELLOW}
                 strokeWidth={1.5}
               />
-            </Pressable>
-          </View>
-        </SafeAreaView>
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -82,7 +107,7 @@ const styles = StyleSheet.create({
     fontSize: 34,
     fontWeight: "700",
     color: "#000",
-    letterSpacing: -0.5, // Toque tipográfico de iOS
+    letterSpacing: -0.5,
   },
   viewToggle: { padding: 4 },
   searchContainer: {
@@ -90,17 +115,17 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   content: { flex: 1 },
-  bottomSafeArea: {
-    backgroundColor: "#F8F8F8",
-  },
+
+  // Estilos originales que centran todo en la misma línea
   bottomToolbar: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    backgroundColor: "#F8F8F8",
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "rgba(0,0,0,0.2)",
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
   toolbarSpacer: { width: 30 },
   noteCount: {

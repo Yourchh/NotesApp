@@ -2,7 +2,7 @@ import { useNotes } from "@/context/NotesContext";
 import { Note } from "@/types/notes";
 import { useRouter } from "expo-router";
 import React from "react";
-import { FlatList, Pressable, StyleSheet, Text } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
 interface NoteGridProps {
   columns: number;
@@ -26,7 +26,6 @@ export const NoteGrid = ({ columns }: NoteGridProps) => {
       <Pressable
         style={({ pressed }) => [
           styles.gridItem,
-          { flex: 1 / columns },
           pressed && styles.gridItemPressed,
         ]}
         onPress={() =>
@@ -37,7 +36,7 @@ export const NoteGrid = ({ columns }: NoteGridProps) => {
           {item.title || "Nueva nota"}
         </Text>
         <Text style={styles.previewText} numberOfLines={4}>
-          {item.content}
+          {item.content || "Sin texto adicional"}
         </Text>
         <Text style={styles.date}>{formatDate(item.updatedAt)}</Text>
       </Pressable>
@@ -45,28 +44,35 @@ export const NoteGrid = ({ columns }: NoteGridProps) => {
   };
 
   return (
-    <FlatList
-      key={`grid-${columns}`}
-      data={filteredNotes}
-      numColumns={columns}
-      keyExtractor={(item) => item.id}
-      renderItem={renderItem}
-      contentContainerStyle={styles.container}
-      columnWrapperStyle={styles.row}
-      showsVerticalScrollIndicator={false}
-    />
+    <View style={styles.mainContainer}>
+      <FlatList
+        key={`grid-${columns}`}
+        data={filteredNotes}
+        numColumns={columns}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        contentContainerStyle={styles.listPadding}
+        columnWrapperStyle={styles.row}
+        showsVerticalScrollIndicator={false}
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  mainContainer: {
+    flex: 1, // Garantiza que la lista tome el espacio disponible
+  },
+  listPadding: {
     padding: 16,
+    paddingBottom: 24, // Espacio extra abajo para que el lápiz no tape la última nota
   },
   row: {
     gap: 12,
     marginBottom: 12,
   },
   gridItem: {
+    flex: 1, // Deja que React Native calcule el ancho exacto de las 2 columnas
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
     padding: 16,
@@ -78,6 +84,8 @@ const styles = StyleSheet.create({
     elevation: 2,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#E5E5EA",
+    // Evita que la última nota sola se estire al 100% del ancho
+    maxWidth: "48%",
   },
   gridItemPressed: {
     opacity: 0.7,

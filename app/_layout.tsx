@@ -1,3 +1,5 @@
+import { useColorScheme } from "@/components/useColorScheme";
+import { NotesProvider } from "@/context/NotesContext";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import {
   DarkTheme,
@@ -8,10 +10,8 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
-
-import { useColorScheme } from "@/components/useColorScheme";
-import { NotesProvider } from "@/context/NotesContext";
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -54,19 +54,24 @@ function RootLayoutNav() {
   const colorScheme = useColorScheme();
 
   return (
-    <NotesProvider>
-      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="note-detail"
-            options={{
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen name="modal" options={{ presentation: "modal" }} />
-        </Stack>
-      </ThemeProvider>
-    </NotesProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <NotesProvider>
+        <ThemeProvider
+          value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+        >
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="note-detail"
+              options={{
+                headerShown: false,
+                gestureEnabled: false,
+              }}
+            />
+            <Stack.Screen name="modal" options={{ presentation: "modal" }} />
+          </Stack>
+        </ThemeProvider>
+      </NotesProvider>
+    </GestureHandlerRootView>
   );
 }
