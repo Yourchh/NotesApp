@@ -132,6 +132,7 @@ export default function NoteDetailScreen() {
           style={styles.content}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive" // <-- CAMBIO APLICADO AQUÍ
         >
           <TextInput
             style={styles.title}

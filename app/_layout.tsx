@@ -62,6 +62,7 @@ function RootLayoutNav() {
             name="note-detail"
             options={{
               headerShown: false,
+              gestureEnabled: false, // <-- CAMBIO APLICADO AQUÍ
             }}
           />
           <Stack.Screen name="modal" options={{ presentation: "modal" }} />
