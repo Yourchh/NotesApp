@@ -1,17 +1,26 @@
+import { ZoomableImage } from "@/components/ZoomableImage";
 import { useNotes } from "@/context/NotesContext";
-import { Note } from "@/types/notes";
+import { ContentBlock, ImageBlock, Note, TextBlock } from "@/types/notes";
+import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, Pin, PinOff, Trash2 } from "lucide-react-native";
+import {
+  ChevronLeft,
+  Image as ImageIcon,
+  Pin,
+  PinOff,
+  Trash2,
+  X,
+} from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
+  TouchableOpacity as RNTouchableOpacity,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
+  TextInput, // Usaremos el botón nativo de React Native
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -32,41 +41,90 @@ export default function NoteDetailScreen() {
     useNotes();
 
   const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
   const [color, setColor] = useState(NOTE_COLORS[0]);
   const [isPinned, setIsPinned] = useState(false);
   const [isNew, setIsNew] = useState(true);
+
+  const [richContent, setRichContent] = useState<ContentBlock[]>([
+    { type: "text", id: `initial_block`, value: "" },
+  ]);
+
+  const [focusedTextBlockId, setFocusedTextBlockId] = useState<string | null>(
+    null,
+  );
+  const [cursorSelection, setCursorSelection] = useState({ start: 0, end: 0 });
 
   useEffect(() => {
     if (id) {
       const note = getNoteById(id);
       if (note) {
         setTitle(note.title);
-        setContent(note.content);
         setColor(note.color || NOTE_COLORS[0]);
         setIsPinned(note.pinned || false);
         setIsNew(false);
+
+        if (note.richContent && note.richContent.length > 0) {
+          setRichContent(note.richContent);
+        } else {
+          const initialBlocks: ContentBlock[] = [];
+          if (note.content) {
+            initialBlocks.push({
+              type: "text",
+              id: `migrated_content`,
+              value: note.content,
+            });
+          }
+          if (note.imageUris && note.imageUris.length > 0) {
+            note.imageUris.forEach((uri: string, idx: number) => {
+              initialBlocks.push({
+                type: "image",
+                id: `migrated_img_${idx}`,
+                uri,
+              });
+            });
+          }
+          if (initialBlocks.length === 0) {
+            initialBlocks.push({
+              type: "text",
+              id: `migrated_empty`,
+              value: "",
+            });
+          }
+          setRichContent(initialBlocks);
+        }
       }
     }
   }, [id]);
 
   const saveNote = async () => {
-    // Si la nota está vacía, no guardarla al regresar
-    if (!title.trim() && !content.trim()) {
+    const isRichContentTextEmpty = richContent
+      .filter((block) => block.type === "text")
+      .every((block) => (block as TextBlock).value.trim() === "");
+    const isRichContentImagesEmpty =
+      richContent.filter((block) => block.type === "image").length === 0;
+
+    if (!title.trim() && isRichContentTextEmpty && isRichContentImagesEmpty) {
       if (router.canGoBack()) router.back();
       else router.replace("/(tabs)");
       return;
     }
 
+    const previewText = richContent
+      .filter((block) => block.type === "text")
+      .map((block) => (block as TextBlock).value)
+      .join("\n")
+      .trim();
+
     const now = Date.now();
     const note: Note = {
       id: id || `note_${now}`,
       title: title.trim(),
-      content: content.trim(),
-      color,
-      pinned: isPinned,
+      content: previewText,
+      richContent,
       createdAt: isNew ? now : getNoteById(id!)?.createdAt || now,
       updatedAt: now,
+      color,
+      pinned: isPinned,
     };
 
     if (isNew) await addNote(note);
@@ -97,6 +155,101 @@ export default function NoteDetailScreen() {
     ]);
   };
 
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsMultipleSelection: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      const newImageBlocks: ImageBlock[] = result.assets.map((asset, idx) => ({
+        type: "image",
+        id: `img_${Date.now()}_${idx}`,
+        uri: asset.uri,
+      }));
+
+      insertImagesAtCursor(newImageBlocks);
+    }
+  };
+
+  const insertImagesAtCursor = (newImageBlocks: ImageBlock[]) => {
+    if (!focusedTextBlockId) {
+      setRichContent((prev) => [
+        ...prev,
+        ...newImageBlocks,
+        { type: "text", id: `text_${Date.now()}`, value: "" },
+      ]);
+      return;
+    }
+
+    const currentBlocks = [...richContent];
+    const focusedBlockIndex = currentBlocks.findIndex(
+      (block) => block.id === focusedTextBlockId,
+    );
+
+    if (
+      focusedBlockIndex === -1 ||
+      currentBlocks[focusedBlockIndex].type !== "text"
+    ) {
+      setRichContent((prev) => [
+        ...prev,
+        ...newImageBlocks,
+        { type: "text", id: `text_${Date.now()}`, value: "" },
+      ]);
+      return;
+    }
+
+    const focusedTextBlock = currentBlocks[focusedBlockIndex] as TextBlock;
+    const currentText = focusedTextBlock.value;
+    const textBefore = currentText.substring(0, cursorSelection.start);
+    const textAfter = currentText.substring(cursorSelection.start);
+
+    const replacementBlocks: ContentBlock[] = [];
+    replacementBlocks.push({
+      type: "text",
+      id: focusedTextBlock.id,
+      value: textBefore,
+    });
+    newImageBlocks.forEach((img) => replacementBlocks.push(img));
+    replacementBlocks.push({
+      type: "text",
+      id: `text_after_${Date.now()}`,
+      value: textAfter,
+    });
+
+    currentBlocks.splice(focusedBlockIndex, 1, ...replacementBlocks);
+
+    setRichContent(currentBlocks);
+    setFocusedTextBlockId(null);
+    setCursorSelection({ start: 0, end: 0 });
+  };
+
+  const removeImageBlock = (idToRemove: string) => {
+    Alert.alert("Quitar foto", "¿Deseas quitar esta imagen de la nota?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Quitar",
+        style: "destructive",
+        onPress: () => {
+          setRichContent((prev) =>
+            prev.filter((block) => block.id !== idToRemove),
+          );
+        },
+      },
+    ]);
+  };
+
+  const updateTextBlockValue = (id: string, newValue: string) => {
+    setRichContent((prev) =>
+      prev.map((block) =>
+        block.type === "text" && block.id === id
+          ? { ...block, value: newValue }
+          : block,
+      ),
+    );
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -104,27 +257,62 @@ export default function NoteDetailScreen() {
     >
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <Pressable onPress={saveNote} style={styles.headerButtonLeft}>
-            <ChevronLeft size={28} color="#E4AF0A" />
-            <Text style={styles.backText}>Notas</Text>
-          </Pressable>
+          <RNTouchableOpacity
+            onPress={saveNote}
+            style={styles.headerButtonLeft}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <View
+              pointerEvents="none"
+              style={{ flexDirection: "row", alignItems: "center" }}
+            >
+              <ChevronLeft size={28} color="#E4AF0A" />
+              <Text style={styles.backText}>Notas</Text>
+            </View>
+          </RNTouchableOpacity>
 
           <View style={styles.headerActions}>
-            <Pressable onPress={handlePinToggle} style={styles.iconButton}>
-              {isPinned ? (
-                <PinOff size={22} color="#E4AF0A" />
-              ) : (
-                <Pin size={22} color="#E4AF0A" />
-              )}
-            </Pressable>
+            <RNTouchableOpacity
+              onPress={pickImage}
+              style={styles.iconButton}
+              hitSlop={{ top: 15, bottom: 15, left: 10, right: 10 }}
+            >
+              <View pointerEvents="none">
+                <ImageIcon size={22} color="#E4AF0A" />
+              </View>
+            </RNTouchableOpacity>
+
+            <RNTouchableOpacity
+              onPress={handlePinToggle}
+              style={styles.iconButton}
+              hitSlop={{ top: 15, bottom: 15, left: 10, right: 10 }}
+            >
+              <View pointerEvents="none">
+                {isPinned ? (
+                  <PinOff size={22} color="#E4AF0A" />
+                ) : (
+                  <Pin size={22} color="#E4AF0A" />
+                )}
+              </View>
+            </RNTouchableOpacity>
+
             {!isNew && (
-              <Pressable onPress={handleDelete} style={styles.iconButton}>
-                <Trash2 size={22} color="#FF3B30" />
-              </Pressable>
+              <RNTouchableOpacity
+                onPress={handleDelete}
+                style={styles.iconButton}
+                hitSlop={{ top: 15, bottom: 15, left: 10, right: 10 }}
+              >
+                <View pointerEvents="none">
+                  <Trash2 size={22} color="#FF3B30" />
+                </View>
+              </RNTouchableOpacity>
             )}
-            <Pressable onPress={saveNote}>
+            <RNTouchableOpacity
+              onPress={saveNote}
+              hitSlop={{ top: 15, bottom: 15, left: 10, right: 10 }}
+            >
               <Text style={styles.doneText}>Listo</Text>
-            </Pressable>
+            </RNTouchableOpacity>
           </View>
         </View>
 
@@ -132,7 +320,8 @@ export default function NoteDetailScreen() {
           style={styles.content}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive" // <-- CAMBIO APLICADO AQUÍ
+          keyboardDismissMode="interactive"
+          contentContainerStyle={{ paddingBottom: 50 }}
         >
           <TextInput
             style={styles.title}
@@ -143,15 +332,46 @@ export default function NoteDetailScreen() {
             maxLength={100}
             multiline
           />
-          <TextInput
-            style={styles.textArea}
-            placeholder="Comienza a escribir..."
-            placeholderTextColor="#C7C7CC"
-            value={content}
-            onChangeText={setContent}
-            multiline
-            textAlignVertical="top"
-          />
+
+          {richContent.map((block) => {
+            if (block.type === "text") {
+              return (
+                <TextInput
+                  key={block.id}
+                  style={styles.textArea}
+                  placeholder="Comienza a escribir..."
+                  placeholderTextColor="#C7C7CC"
+                  value={block.value}
+                  onChangeText={(newValue) =>
+                    updateTextBlockValue(block.id, newValue)
+                  }
+                  multiline
+                  textAlignVertical="top"
+                  onFocus={() => setFocusedTextBlockId(block.id)}
+                  onSelectionChange={(event) =>
+                    setCursorSelection(event.nativeEvent.selection)
+                  }
+                  scrollEnabled={false}
+                />
+              );
+            } else if (block.type === "image") {
+              return (
+                <View key={block.id} style={styles.imageWrapper}>
+                  <ZoomableImage uri={block.uri} />
+
+                  {/* BOTÓN X CORREGIDO: Medidas exactas, centrado perfecto y zIndex altísimo */}
+                  <RNTouchableOpacity
+                    style={styles.deleteImageBtn}
+                    onPress={() => removeImageBlock(block.id)}
+                    hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                  >
+                    <X size={16} color="#FFFFFF" strokeWidth={3} />
+                  </RNTouchableOpacity>
+                </View>
+              );
+            }
+            return null;
+          })}
         </ScrollView>
       </SafeAreaView>
     </KeyboardAvoidingView>
@@ -159,15 +379,14 @@ export default function NoteDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 8,
     paddingVertical: 10,
+    zIndex: 100, // Nos aseguramos de que el header esté arriba
   },
   headerButtonLeft: {
     flexDirection: "row",
@@ -184,9 +403,7 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingRight: 8,
   },
-  iconButton: {
-    padding: 4,
-  },
+  iconButton: { padding: 4 },
   doneText: {
     fontSize: 17,
     fontWeight: "600",
@@ -207,6 +424,30 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 24,
     color: "#000",
-    minHeight: 300,
+    marginVertical: 0,
+    paddingVertical: 2,
+  },
+  imageWrapper: {
+    position: "relative",
+    marginVertical: 4,
+    // Ya NO hay overflow: 'hidden' para no cortar la X
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  deleteImageBtn: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    width: 30, // Medida exacta de ancho
+    height: 30, // Medida exacta de alto
+    justifyContent: "center", // Centra la X verticalmente
+    alignItems: "center", // Centra la X horizontalmente
+    backgroundColor: "rgba(0, 0, 0, 0.65)",
+    borderRadius: 15, // Hace que el botón sea un círculo perfecto
+    zIndex: 999, // Superposición absoluta en iOS
+    elevation: 10,
   },
 });

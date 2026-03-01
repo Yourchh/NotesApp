@@ -6,11 +6,10 @@ import { useRouter } from "expo-router";
 import { LayoutGrid, List, SquarePen } from "lucide-react-native";
 import React, { useState } from "react";
 import {
-  Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import {
   SafeAreaView,
@@ -42,9 +41,16 @@ export default function NotesScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.largeTitle}>Notas</Text>
-          <Pressable onPress={toggleViewMode} style={styles.viewToggle}>
-            {getViewIcon()}
-          </Pressable>
+
+          {/* APLICAMOS LA MISMA SOLUCIÓN DEL LÁPIZ AQUÍ */}
+          <TouchableOpacity
+            onPress={toggleViewMode}
+            style={styles.viewToggle}
+            hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+            activeOpacity={0.6}
+          >
+            <View pointerEvents="none">{getViewIcon()}</View>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.searchContainer}>
