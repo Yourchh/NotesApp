@@ -16,11 +16,12 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   TouchableOpacity as RNTouchableOpacity,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput, // Usaremos el botón nativo de React Native
+  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -44,6 +45,7 @@ export default function NoteDetailScreen() {
   const [color, setColor] = useState(NOTE_COLORS[0]);
   const [isPinned, setIsPinned] = useState(false);
   const [isNew, setIsNew] = useState(true);
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
 
   const [richContent, setRichContent] = useState<ContentBlock[]>([
     { type: "text", id: `initial_block`, value: "" },
@@ -226,6 +228,7 @@ export default function NoteDetailScreen() {
   };
 
   const removeImageBlock = (idToRemove: string) => {
+    // Diálogo de confirmación
     Alert.alert("Quitar foto", "¿Deseas quitar esta imagen de la nota?", [
       { text: "Cancelar", style: "cancel" },
       {
@@ -235,6 +238,7 @@ export default function NoteDetailScreen() {
           setRichContent((prev) =>
             prev.filter((block) => block.id !== idToRemove),
           );
+          setSelectedImageId(null);
         },
       },
     ]);
@@ -322,6 +326,7 @@ export default function NoteDetailScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
           contentContainerStyle={{ paddingBottom: 50 }}
+          onScrollBeginDrag={() => setSelectedImageId(null)}
         >
           <TextInput
             style={styles.title}
@@ -331,6 +336,7 @@ export default function NoteDetailScreen() {
             onChangeText={setTitle}
             maxLength={100}
             multiline
+            onFocus={() => setSelectedImageId(null)}
           />
 
           {richContent.map((block) => {
@@ -347,7 +353,10 @@ export default function NoteDetailScreen() {
                   }
                   multiline
                   textAlignVertical="top"
-                  onFocus={() => setFocusedTextBlockId(block.id)}
+                  onFocus={() => {
+                    setFocusedTextBlockId(block.id);
+                    setSelectedImageId(null);
+                  }}
                   onSelectionChange={(event) =>
                     setCursorSelection(event.nativeEvent.selection)
                   }
@@ -355,18 +364,29 @@ export default function NoteDetailScreen() {
                 />
               );
             } else if (block.type === "image") {
+              const isSelected = selectedImageId === block.id;
               return (
                 <View key={block.id} style={styles.imageWrapper}>
-                  <ZoomableImage uri={block.uri} />
-
-                  {/* BOTÓN X CORREGIDO: Medidas exactas, centrado perfecto y zIndex altísimo */}
-                  <RNTouchableOpacity
-                    style={styles.deleteImageBtn}
-                    onPress={() => removeImageBlock(block.id)}
-                    hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                  <Pressable
+                    onPress={() =>
+                      setSelectedImageId(isSelected ? null : block.id)
+                    }
                   >
-                    <X size={16} color="#FFFFFF" strokeWidth={3} />
-                  </RNTouchableOpacity>
+                    <ZoomableImage uri={block.uri} />
+                  </Pressable>
+
+                  {isSelected && (
+                    <RNTouchableOpacity
+                      style={styles.deleteImageBtn}
+                      onPress={() => removeImageBlock(block.id)}
+                      hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                    >
+                      {/* Usamos View para asegurar que el icono no bloquee el toque */}
+                      <View pointerEvents="none">
+                        <X size={16} color="#FFFFFF" strokeWidth={3} />
+                      </View>
+                    </RNTouchableOpacity>
+                  )}
                 </View>
               );
             }
@@ -386,7 +406,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 8,
     paddingVertical: 10,
-    zIndex: 100, // Nos aseguramos de que el header esté arriba
+    zIndex: 100,
   },
   headerButtonLeft: {
     flexDirection: "row",
@@ -430,7 +450,6 @@ const styles = StyleSheet.create({
   imageWrapper: {
     position: "relative",
     marginVertical: 4,
-    // Ya NO hay overflow: 'hidden' para no cortar la X
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -441,13 +460,13 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 12,
     right: 12,
-    width: 30, // Medida exacta de ancho
-    height: 30, // Medida exacta de alto
-    justifyContent: "center", // Centra la X verticalmente
-    alignItems: "center", // Centra la X horizontalmente
-    backgroundColor: "rgba(0, 0, 0, 0.65)",
-    borderRadius: 15, // Hace que el botón sea un círculo perfecto
-    zIndex: 999, // Superposición absoluta en iOS
-    elevation: 10,
+    width: 34, // Ligeramente más grande para facilitar el toque
+    height: 34,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    borderRadius: 17,
+    zIndex: 9999, // Z-index muy alto para asegurar que esté por encima de todo
+    elevation: 11,
   },
 });
