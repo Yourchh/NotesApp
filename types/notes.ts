@@ -6,13 +6,14 @@ export type ContentBlock = TextBlock | ImageBlock;
 export interface Note {
   id: string;
   title: string;
-  content: string; // Se usará solo como "vista previa" para la lista
+  content: string;
   createdAt: number;
   updatedAt: number;
   color?: string;
   pinned?: boolean;
-  imageUris?: string[]; // Soporte para notas antiguas
-  richContent?: ContentBlock[]; // <-- Nuestra nueva estructura de bloques
+  imageUris?: string[];
+  richContent?: ContentBlock[];
+  order: number;
 }
 
 export type ViewMode = "grid" | "list";

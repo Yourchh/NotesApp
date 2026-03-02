@@ -1,3 +1,4 @@
+// context/NotesContext.tsx
 import { storageService } from "@/services/storageService";
 import { Note } from "@/types/notes";
 import React, { createContext, useContext, useEffect, useState } from "react";
@@ -10,6 +11,7 @@ interface NotesContextType {
   updateNote: (note: Note) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
   togglePin: (id: string) => Promise<void>;
+  updateNotesOrder: (newNotes: Note[]) => Promise<void>;
   getNoteById: (id: string) => Note | undefined;
   filteredNotes: Note[];
   isLoading: boolean;
@@ -23,7 +25,6 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load notes on mount
   useEffect(() => {
     loadNotes();
   }, []);
@@ -41,8 +42,12 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addNote = async (note: Note) => {
-    await storageService.saveNote(note);
-    setNotes((prev) => [note, ...prev]);
+    // Asignamos un orden inicial (al principio de la lista)
+    const newOrder =
+      notes.length > 0 ? Math.min(...notes.map((n) => n.order)) - 1 : 0;
+    const noteWithOrder = { ...note, order: newOrder };
+    await storageService.saveNote(noteWithOrder);
+    setNotes((prev) => [noteWithOrder, ...prev]);
   };
 
   const updateNote = async (note: Note) => {
@@ -57,30 +62,41 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
 
   const togglePin = async (id: string) => {
     await storageService.togglePin(id);
-    const updatedNotes = notes.map((n) =>
-      n.id === id ? { ...n, pinned: !n.pinned } : n,
+    setNotes((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, pinned: !n.pinned } : n)),
     );
-    setNotes(updatedNotes);
+  };
+
+  const updateNotesOrder = async (newNotes: Note[]) => {
+    // Sincronizamos el orden basado en la nueva posición del array
+    const updatedWithOrder = newNotes.map((note, index) => ({
+      ...note,
+      order: index,
+    }));
+    setNotes(updatedWithOrder);
+    // Nota: Aquí podrías implementar un bulk update en tu storageService si es necesario
   };
 
   const getNoteById = (id: string) => notes.find((n) => n.id === id);
 
-  const filteredNotes = notes.filter((note) => {
-    const query = searchQuery.toLowerCase();
-    return (
-      note.title.toLowerCase().includes(query) ||
-      note.content.toLowerCase().includes(query)
-    );
-  });
+  // Filtramos y luego ordenamos con la nueva lógica
+  const sortedAndFilteredNotes = notes
+    .filter((note) => {
+      const query = searchQuery.toLowerCase();
+      return (
+        note.title.toLowerCase().includes(query) ||
+        note.content.toLowerCase().includes(query)
+      );
+    })
+    .sort((a, b) => {
+      // 1. Pinned primero
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      // 2. Orden manual (Draggable)
+      return (a.order || 0) - (b.order || 0);
+    });
 
-  // Sort: pinned first, then by date
-  const sortedAndFilteredNotes = filteredNotes.sort((a, b) => {
-    if (a.pinned && !b.pinned) return -1;
-    if (!a.pinned && b.pinned) return 1;
-    return b.updatedAt - a.updatedAt;
-  });
-
-  const value: NotesContextType = {
+  const value = {
     notes,
     searchQuery,
     setSearchQuery,
@@ -88,6 +104,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     updateNote,
     deleteNote,
     togglePin,
+    updateNotesOrder,
     getNoteById,
     filteredNotes: sortedAndFilteredNotes,
     isLoading,
@@ -101,8 +118,6 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
 
 export function useNotes() {
   const context = useContext(NotesContext);
-  if (!context) {
-    throw new Error("useNotes must be used within NotesProvider");
-  }
+  if (!context) throw new Error("useNotes must be used within NotesProvider");
   return context;
 }

@@ -96,7 +96,7 @@ export default function NoteDetailScreen() {
         }
       }
     }
-  }, [id]);
+  }, [id, getNoteById]);
 
   const saveNote = async () => {
     const isRichContentTextEmpty = richContent
@@ -118,15 +118,18 @@ export default function NoteDetailScreen() {
       .trim();
 
     const now = Date.now();
+    const existingNote = id ? getNoteById(id) : null; // Recuperamos la nota existente para mantener su orden
+
     const note: Note = {
       id: id || `note_${now}`,
       title: title.trim(),
       content: previewText,
       richContent,
-      createdAt: isNew ? now : getNoteById(id!)?.createdAt || now,
+      createdAt: isNew ? now : existingNote?.createdAt || now,
       updatedAt: now,
       color,
       pinned: isPinned,
+      order: existingNote?.order ?? 0, // Se incluye la propiedad 'order' requerida
     };
 
     if (isNew) await addNote(note);
@@ -159,7 +162,7 @@ export default function NoteDetailScreen() {
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
       quality: 0.8,
     });
@@ -228,7 +231,6 @@ export default function NoteDetailScreen() {
   };
 
   const removeImageBlock = (idToRemove: string) => {
-    // Diálogo de confirmación
     Alert.alert("Quitar foto", "¿Deseas quitar esta imagen de la nota?", [
       { text: "Cancelar", style: "cancel" },
       {
@@ -381,7 +383,6 @@ export default function NoteDetailScreen() {
                       onPress={() => removeImageBlock(block.id)}
                       hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
                     >
-                      {/* Usamos View para asegurar que el icono no bloquee el toque */}
                       <View pointerEvents="none">
                         <X size={16} color="#FFFFFF" strokeWidth={3} />
                       </View>
@@ -460,13 +461,13 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 12,
     right: 12,
-    width: 34, // Ligeramente más grande para facilitar el toque
+    width: 34,
     height: 34,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.7)",
     borderRadius: 17,
-    zIndex: 9999, // Z-index muy alto para asegurar que esté por encima de todo
+    zIndex: 9999,
     elevation: 11,
   },
 });
