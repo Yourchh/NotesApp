@@ -6,8 +6,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ChevronLeft,
   Image as ImageIcon,
-  Pin,
-  PinOff,
+  Star, // Cambiado Pin y PinOff por Star
   Trash2,
   X,
 } from "lucide-react-native";
@@ -118,7 +117,7 @@ export default function NoteDetailScreen() {
       .trim();
 
     const now = Date.now();
-    const existingNote = id ? getNoteById(id) : null; // Recuperamos la nota existente para mantener su orden
+    const existingNote = id ? getNoteById(id) : null;
 
     const note: Note = {
       id: id || `note_${now}`,
@@ -129,7 +128,7 @@ export default function NoteDetailScreen() {
       updatedAt: now,
       color,
       pinned: isPinned,
-      order: existingNote?.order ?? 0, // Se incluye la propiedad 'order' requerida
+      order: existingNote?.order ?? 0,
     };
 
     if (isNew) await addNote(note);
@@ -294,11 +293,12 @@ export default function NoteDetailScreen() {
               hitSlop={{ top: 15, bottom: 15, left: 10, right: 10 }}
             >
               <View pointerEvents="none">
-                {isPinned ? (
-                  <PinOff size={22} color="#E4AF0A" />
-                ) : (
-                  <Pin size={22} color="#E4AF0A" />
-                )}
+                {/* Se ha reemplazado Pin/PinOff por un único icono Star con relleno condicional */}
+                <Star
+                  size={24}
+                  color="#E4AF0A"
+                  fill={isPinned ? "#E4AF0A" : "transparent"}
+                />
               </View>
             </RNTouchableOpacity>
 

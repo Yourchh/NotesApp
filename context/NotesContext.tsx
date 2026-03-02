@@ -11,7 +11,7 @@ interface NotesContextType {
   updateNote: (note: Note) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
   togglePin: (id: string) => Promise<void>;
-  updateNotesOrder: (newNotes: Note[]) => Promise<void>;
+  updateNotesOrder: (newNotes: Note[]) => Promise<void>; // <-- Nueva función
   getNoteById: (id: string) => Note | undefined;
   filteredNotes: Note[];
   isLoading: boolean;
@@ -42,7 +42,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addNote = async (note: Note) => {
-    // Asignamos un orden inicial (al principio de la lista)
+    // Asignamos un orden inicial (al principio)
     const newOrder =
       notes.length > 0 ? Math.min(...notes.map((n) => n.order)) - 1 : 0;
     const noteWithOrder = { ...note, order: newOrder };
@@ -67,19 +67,19 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  // Función para guardar el nuevo orden tras el Drag & Drop
   const updateNotesOrder = async (newNotes: Note[]) => {
-    // Sincronizamos el orden basado en la nueva posición del array
     const updatedWithOrder = newNotes.map((note, index) => ({
       ...note,
       order: index,
     }));
     setNotes(updatedWithOrder);
-    // Nota: Aquí podrías implementar un bulk update en tu storageService si es necesario
+    // Aquí podrías persistir el array completo si tu storageService lo permite
   };
 
   const getNoteById = (id: string) => notes.find((n) => n.id === id);
 
-  // Filtramos y luego ordenamos con la nueva lógica
+  // Lógica de ordenamiento corregida
   const sortedAndFilteredNotes = notes
     .filter((note) => {
       const query = searchQuery.toLowerCase();
@@ -89,11 +89,9 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
       );
     })
     .sort((a, b) => {
-      // 1. Pinned primero
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
-      // 2. Orden manual (Draggable)
-      return (a.order || 0) - (b.order || 0);
+      return (a.order || 0) - (b.order || 0); // Orden manual
     });
 
   const value = {
