@@ -2,7 +2,7 @@
 import { useNotes } from "@/context/NotesContext";
 import { Note } from "@/types/notes";
 import { useRouter } from "expo-router";
-import { Pin, Trash2 } from "lucide-react-native";
+import { Star, Trash2 } from "lucide-react-native"; // 1. Cambiado Pin por Star
 import React from "react";
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import DraggableFlatList, {
@@ -15,6 +15,7 @@ import {
   GestureHandlerRootView,
   Swipeable,
 } from "react-native-gesture-handler";
+import { runOnJS } from "react-native-reanimated";
 
 const APPLE_NOTES_YELLOW = "#E4AF0A";
 
@@ -30,19 +31,31 @@ export const NoteList = () => {
     });
   };
 
-  const renderRightActions = () => (
-    <View style={styles.deleteAction}>
+  const confirmDelete = (id: string) => {
+    Alert.alert("Eliminar nota", "¿Deseas borrar esta nota permanentemente?", [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Eliminar", style: "destructive", onPress: () => deleteNote(id) },
+    ]);
+  };
+
+  const renderRightActions = (id: string) => (
+    <TouchableOpacity
+      style={styles.deleteAction}
+      onPress={() => confirmDelete(id)}
+    >
       <Trash2 color="white" size={24} />
-    </View>
+    </TouchableOpacity>
   );
 
   const renderItem = ({ item, drag, isActive }: RenderItemParams<Note>) => {
+    // GESTO: Double Tap para favoritos
     const doubleTap = Gesture.Tap()
       .numberOfTaps(2)
       .onEnd(() => {
-        togglePin(item.id);
+        runOnJS(togglePin)(item.id);
       });
 
+    // GESTO: Long Press para acciones rápidas
     const openQuickActions = () => {
       Alert.alert(item.title || "Nota", "Acciones rápidas", [
         {
@@ -52,7 +65,7 @@ export const NoteList = () => {
         {
           text: "Eliminar",
           style: "destructive",
-          onPress: () => deleteNote(item.id),
+          onPress: () => confirmDelete(item.id),
         },
         { text: "Cancelar", style: "cancel" },
       ]);
@@ -61,18 +74,17 @@ export const NoteList = () => {
     return (
       <ScaleDecorator>
         <Swipeable
-          renderRightActions={renderRightActions}
+          renderRightActions={() => renderRightActions(item.id)}
           onSwipeableOpen={(direction) => {
-            if (direction === "right") deleteNote(item.id); // Eliminación por deslizamiento total
+            if (direction === "right") runOnJS(deleteNote)(item.id); // Swipe total para borrar
           }}
-          friction={2}
           rightThreshold={140}
         >
           <GestureDetector gesture={doubleTap}>
             <TouchableOpacity
               activeOpacity={0.7}
-              onLongPress={drag} // Activa el Drag & Drop
-              delayLongPress={250}
+              onLongPress={openQuickActions} // Acciones rápidas
+              onPressIn={drag} // Drag & Drop
               onPress={() =>
                 router.push({
                   pathname: "/note-detail",
@@ -85,15 +97,15 @@ export const NoteList = () => {
                 <Text style={styles.title} numberOfLines={1}>
                   {item.title || "Nueva nota"}
                 </Text>
+                {/* 2. Reemplazado Pin por Star */}
                 {item.pinned && (
-                  <Pin
+                  <Star
                     size={16}
                     color={APPLE_NOTES_YELLOW}
                     fill={APPLE_NOTES_YELLOW}
                   />
                 )}
               </View>
-
               <View style={styles.previewContainer}>
                 <Text style={styles.date}>{formatDate(item.updatedAt)}</Text>
                 <Text style={styles.previewText} numberOfLines={1}>
@@ -124,7 +136,7 @@ export const NoteList = () => {
             data={filteredNotes}
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
-            onDragEnd={({ data }) => updateNotesOrder(data)}
+            onDragEnd={({ data }) => updateNotesOrder(data)} // Sincroniza orden
             showsVerticalScrollIndicator={false}
           />
         </View>
